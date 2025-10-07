@@ -909,3 +909,565 @@ SELECT COUNT(*) FROM employees;
 -- Только с указанной зарплатой
 SELECT COUNT(salary) FROM employees;
 ```
+## 61. Агрегирование по выражениям и функциональным ключам
+**Теория:**  
+Можно группировать по результату функции или выражения.
+
+**Реализация:**
+```sql
+-- Группировка по году из даты
+SELECT EXTRACT(YEAR FROM created_at) AS year, COUNT(*)
+FROM orders
+GROUP BY year;
+```
+
+---
+
+## 62. EXISTS с дополнительными фильтрами внешнего запроса
+**Теория:**  
+EXISTS учитывает фильтры внешнего запроса, т.к. подзапрос связан с каждой строкой.
+
+**Реализация:**
+```sql
+-- Только активные клиенты с заказами
+SELECT * FROM customers c
+WHERE c.active
+  AND EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);
+```
+
+---
+
+## 63. Анти‑соединение через NOT EXISTS vs LEFT JOIN … IS NULL
+**Теория:**  
+NOT EXISTS не чувствителен к NULL и обычно быстрее, чем LEFT JOIN ... IS NULL.
+
+**Реализация:**
+```sql
+-- Клиенты без заказов (анти‑соединение)
+SELECT * FROM customers c
+WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);
+```
+
+---
+
+## 64. Читаемость сложных запросов (структурирование)
+**Теория:**  
+Используйте CTE, отступы, алиасы для структурирования.
+
+**Реализация:**
+```sql
+WITH active_customers AS (
+  SELECT * FROM customers WHERE active = true
+)
+SELECT c.id, c.name, COUNT(o.id) AS order_count
+FROM active_customers c
+LEFT JOIN orders o ON o.customer_id = c.id
+GROUP BY c.id, c.name
+ORDER BY order_count DESC;
+```
+
+---
+
+## 65. = ANY для IN-выражений
+**Теория:**  
+`= ANY(array)` эквивалентно `IN (list)` в PostgreSQL.
+
+**Реализация:**
+```sql
+-- Проверить, есть ли id в массиве
+SELECT * FROM users WHERE id = ANY(ARRAY[1,2,3]);
+```
+
+---
+
+## 66. Отсечение малых групп с HAVING
+**Теория:**  
+HAVING фильтрует группы после агрегирования.
+
+**Реализация:**
+```sql
+-- Оставить только группы с количеством > 5
+SELECT department_id, COUNT(*)
+FROM employees
+GROUP BY department_id
+HAVING COUNT(*) > 5;
+```
+
+---
+
+## 67. Изменение ENUM (ADD VALUE)
+**Теория:**  
+Добавление значения в ENUM не нарушает данные.
+
+**Реализация:**
+```sql
+ALTER TYPE mood ADD VALUE 'angry';
+```
+
+---
+
+## 68. SIMILAR TO vs LIKE
+**Теория:**  
+LIKE — простой шаблон (_ и %), SIMILAR TO — расширенный синтаксис, как regexp.
+
+**Реализация:**
+```sql
+-- LIKE: имя начинается на 'A'
+SELECT * FROM users WHERE name LIKE 'A%';
+
+-- SIMILAR TO: имя начинается на A или B
+SELECT * FROM users WHERE name SIMILAR TO '(A|B)%';
+```
+
+---
+
+## 69. Повторяющийся подзапрос в CTE
+**Теория:**  
+CTE позволяет вынести общий подзапрос для повторного использования.
+
+**Реализация:**
+```sql
+WITH big_orders AS (
+  SELECT * FROM orders WHERE amount > 1000
+)
+SELECT * FROM big_orders WHERE status = 'paid';
+SELECT COUNT(*) FROM big_orders;
+```
+
+---
+
+## 70. CASE в GROUP BY/HAVING
+**Теория:**  
+Можно группировать или фильтровать по выражению CASE.
+
+**Реализация:**
+```sql
+SELECT
+  CASE WHEN salary > 10000 THEN 'Высокая' ELSE 'Обычная' END AS salary_cat,
+  COUNT(*)
+FROM employees
+GROUP BY salary_cat
+HAVING COUNT(*) > 3;
+```
+
+---
+
+## 71. Подстановки и шаблоны поиска в текстовых колонках
+**Теория:**  
+LIKE, SIMILAR TO, POSIX‑регекс для поиска по шаблону.
+
+**Реализация:**
+```sql
+-- LIKE: email с доменом gmail
+SELECT * FROM users WHERE email LIKE '%@gmail.com';
+
+-- SIMILAR TO: email с любым доменом
+SELECT * FROM users WHERE email SIMILAR TO '%@%.%';
+```
+
+---
+
+## 72. Подзапрос в WHERE с IN для фильтрации
+**Теория:**  
+WHERE ... IN (подзапрос) фильтрует строки по значениям из подзапроса.
+
+**Реализация:**
+```sql
+SELECT * FROM employees
+WHERE department_id IN (SELECT id FROM departments WHERE active = true);
+```
+
+---
+
+## 73. EXISTS: производительность (индексы, лимит)
+**Теория:**  
+Индекс на связываемом поле ускоряет EXISTS; LIMIT 1 в подзапросе не нужен — EXISTS завершает поиск на первой строке.
+
+**Реализация:**
+```sql
+CREATE INDEX idx_orders_customer_id ON orders(customer_id);
+
+SELECT * FROM customers c
+WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);
+```
+
+---
+
+## 74. NOT IN → NOT EXISTS с учётом NULL
+**Теория:**  
+NOT EXISTS безопасен для NULL, NOT IN может давать неожиданный результат с NULL.
+
+**Реализация:**
+```sql
+-- Безопасная альтернатива NOT IN
+SELECT * FROM customers c
+WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);
+```
+
+---
+
+## 75. ANY для сравнения значения с набором
+**Теория:**  
+ANY сравнивает значение с элементами массива или результатом подзапроса.
+
+**Реализация:**
+```sql
+SELECT * FROM employees
+WHERE department_id = ANY (SELECT id FROM departments WHERE active = true);
+```
+
+---
+
+## 76. Составной (composite) тип: определение
+**Теория:**  
+Composite тип — набор полей, определяемых как один тип.
+
+**Реализация:**
+```sql
+CREATE TYPE address_type AS (city TEXT, zip TEXT);
+CREATE TABLE users (
+  id SERIAL,
+  address address_type
+);
+```
+
+---
+
+## 77. Подзапрос: где можно использовать
+**Теория:**  
+Подзапросы допустимы в SELECT, FROM, WHERE, HAVING.
+
+**Реализация:**
+```sql
+-- В SELECT
+SELECT name, (SELECT COUNT(*) FROM orders o WHERE o.customer_id = u.id) AS order_count
+FROM users u;
+
+-- В FROM
+SELECT * FROM (SELECT * FROM orders WHERE amount > 100) big_orders;
+
+-- В WHERE
+SELECT * FROM users WHERE id IN (SELECT customer_id FROM orders);
+```
+
+---
+
+## 78. COALESCE в ORDER BY для сортировки NULL
+**Теория:**  
+COALESCE позволяет задать порядок сортировки для NULL.
+
+**Реализация:**
+```sql
+SELECT * FROM employees
+ORDER BY COALESCE(salary, 0) DESC;
+```
+
+---
+
+## 79. Агрегация уникальных значений (COUNT(DISTINCT …), SUM(DISTINCT …))
+**Теория:**  
+Агрегаты с DISTINCT считаются только по уникальным значениям.
+
+**Реализация:**
+```sql
+SELECT COUNT(DISTINCT department_id) FROM employees;
+SELECT SUM(DISTINCT salary) FROM employees;
+```
+
+---
+
+## 80. Связь внешнего запроса с подзапросом (коррелированный подзапрос)
+**Теория:**  
+В подзапросе используются данные из внешнего запроса.
+
+**Реализация:**
+```sql
+SELECT name,
+  (SELECT COUNT(*) FROM orders o WHERE o.customer_id = u.id) AS order_count
+FROM users u;
+```
+
+---
+
+## 81. Читаемые шаблоны SIMILAR TO и тесты
+**Теория:**  
+Пишите шаблоны понятно, сопровождайте тест-запросами.
+
+**Реализация:**
+```sql
+-- Шаблон для email
+SELECT email FROM users WHERE email SIMILAR TO '%@%.%';
+
+-- Тест: email 'test@mail.com' проходит, 'testmail.com' — нет
+```
+
+---
+
+## 82. Доля группы от общего итога через оконные функции
+**Теория:**  
+Доля = агрегат по группе / агрегат по всем строкам (через оконную функцию).
+
+**Реализация:**
+```sql
+SELECT department_id,
+  SUM(salary) AS dept_sum,
+  SUM(salary) / SUM(SUM(salary)) OVER () AS dept_share
+FROM employees
+GROUP BY department_id;
+```
+
+---
+
+## 83. ROLLUP/CUBE/GROUPING SETS в PostgreSQL
+**Теория:**  
+Расширенные группировки для итогов по нескольким уровням.
+
+**Реализация:**
+```sql
+-- ROLLUP: итог по отделу и общий итог
+SELECT department_id, SUM(salary)
+FROM employees
+GROUP BY ROLLUP(department_id);
+
+-- CUBE: итоги по комбинациям нескольких групп
+SELECT department_id, job_id, SUM(salary)
+FROM employees
+GROUP BY CUBE(department_id, job_id);
+
+-- GROUPING SETS: произвольные группы
+SELECT department_id, job_id, SUM(salary)
+FROM employees
+GROUP BY GROUPING SETS ((department_id), (job_id), ());
+```
+
+---
+
+## 84. Ограничение TOP‑N на каждую группу (ROW_NUMBER + фильтр)
+**Теория:**  
+ROW_NUMBER() + фильтр по номеру строки.
+
+**Реализация:**
+```sql
+SELECT *
+FROM (
+  SELECT *, ROW_NUMBER() OVER (PARTITION BY department_id ORDER BY salary DESC) AS rn
+  FROM employees
+) sub
+WHERE rn <= 3;
+```
+
+---
+
+## 85. Шаблон с альтернативами через | в SIMILAR TO
+**Теория:**  
+| задаёт альтернативы.
+
+**Реализация:**
+```sql
+SELECT * FROM users WHERE name SIMILAR TO '(Ivan|Maria)%';
+```
+
+---
+
+## 86. Создание ENUM-типов
+**Теория:**  
+ENUM — тип с ограниченным списком допустимых значений.
+
+**Реализация:**
+```sql
+CREATE TYPE status_type AS ENUM ('active', 'inactive', 'pending');
+CREATE TABLE users (id SERIAL, status status_type);
+```
+
+---
+
+## 87. Отрицание совпадения через NOT SIMILAR TO
+**Теория:**  
+NOT SIMILAR TO возвращает TRUE, если строка НЕ соответствует шаблону.
+
+**Реализация:**
+```sql
+SELECT * FROM users WHERE email NOT SIMILAR TO '%@%.%';
+```
+
+---
+
+## 88. Данные из нескольких таблиц с JOIN в FROM
+**Теория:**  
+JOIN объединяет строки из нескольких таблиц по условию.
+
+**Реализация:**
+```sql
+SELECT e.name, d.name AS dept
+FROM employees e
+JOIN departments d ON e.department_id = d.id;
+```
+
+---
+
+## 89. Анти‑ и полу‑соединения через EXISTS/NOT EXISTS
+**Теория:**  
+EXISTS — полу‑соединение (есть связанные строки), NOT EXISTS — анти‑соединение (нет связанных).
+
+**Реализация:**
+```sql
+-- Полу‑соединение: клиенты с заказами
+SELECT * FROM customers c WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);
+
+-- Анти‑соединение: без заказов
+SELECT * FROM customers c WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);
+```
+
+---
+
+## 90. Проверка, что строка состоит только из цифр с SIMILAR TO
+**Теория:**  
+SIMILAR TO с шаблоном для чисел.
+
+**Реализация:**
+```sql
+SELECT * FROM test WHERE value SIMILAR TO '[0-9]+';
+```
+
+---
+
+## 91. Производительность SIMILAR TO vs POSIX‑регекс
+**Теория:**  
+POSIX‑регекс (~, ~*) обычно быстрее и гибче, чем SIMILAR TO.
+
+**Реализация:**
+```sql
+-- SIMILAR TO
+SELECT * FROM test WHERE value SIMILAR TO '[0-9]+';
+
+-- POSIX‑регекс
+SELECT * FROM test WHERE value ~ '^[0-9]+$';
+-- Для больших данных используйте индекс по выражению для ускорения
+```
+
+---
+
+## 92. Упрощение CASE через GREATEST/LEAST и bool‑выражения
+**Теория:**  
+GREATEST/LEAST и логические выражения сокращают условия.
+
+**Реализация:**
+```sql
+-- Минимальное значение
+SELECT GREATEST(salary, 5000) FROM employees;
+
+-- Булево → текст
+SELECT CASE WHEN active THEN 'Да' ELSE 'Нет' END FROM users;
+```
+
+---
+
+## 93. Агрегат по подмножеству с FILTER (WHERE …)
+**Теория:**  
+FILTER позволяет применять агрегат только к части строк.
+
+**Реализация:**
+```sql
+SELECT
+  COUNT(*) AS total,
+  COUNT(*) FILTER (WHERE active) AS active_count
+FROM users;
+```
+
+---
+
+## 94. Ошибка «column must appear in the GROUP BY clause»
+**Теория:**  
+В SELECT с GROUP BY можно использовать только агрегаты и столбцы из GROUP BY.
+
+**Реализация:**
+```sql
+-- Верно: оба столбца — агрегат и группируемый
+SELECT department_id, COUNT(*) FROM employees GROUP BY department_id;
+
+-- Ошибка: name не в GROUP BY
+-- SELECT department_id, name, COUNT(*) FROM employees GROUP BY department_id; -- ошибка
+```
+
+---
+
+## 95. Переписать IN на EXISTS и когда выгодно
+**Теория:**  
+EXISTS быстрее при большом количестве значений или NULL; IN — проще для небольших наборов.
+
+**Реализация:**
+```sql
+-- IN
+SELECT * FROM users WHERE id IN (SELECT user_id FROM orders);
+
+-- EXISTS
+SELECT * FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id);
+```
+
+---
+
+## 96. SIMILAR TO vs LIKE vs POSIX‑регекс
+**Теория:**  
+LIKE — простейший шаблон, SIMILAR TO — расширенный, POSIX‑регекс — полнофункциональный.
+
+**Реализация:**
+```sql
+-- LIKE: 'a%'
+SELECT * FROM test WHERE name LIKE 'a%';
+
+-- SIMILAR TO: '(a|b)%'
+SELECT * FROM test WHERE name SIMILAR TO '(a|b)%';
+
+-- POSIX‑регекс: ~
+SELECT * FROM test WHERE name ~ '^(a|b)';
+```
+
+---
+
+## 97. Подзапрос vs JOIN: когда заменить
+**Теория:**  
+JOIN быстрее для больших данных, если нужен весь набор; подзапрос — для проверки существования.
+
+**Реализация:**
+```sql
+-- Подзапрос
+SELECT * FROM users WHERE id IN (SELECT user_id FROM orders);
+
+-- JOIN
+SELECT DISTINCT u.* FROM users u JOIN orders o ON u.id = o.user_id;
+```
+
+---
+
+## 98. DOMAIN в таблице и наследование ограничений
+**Теория:**  
+DOMAIN хранит ограничения, которые наследуются колонкой.
+
+**Реализация:**
+```sql
+CREATE DOMAIN positive_int AS INTEGER CHECK (VALUE > 0);
+CREATE TABLE items (qty positive_int);
+```
+
+---
+
+## 99. COALESCE и NULLIF вместе
+**Теория:**  
+NULLIF устраняет конфликт/деление на ноль, COALESCE подставляет значение по умолчанию.
+
+**Реализация:**
+```sql
+SELECT COALESCE(amount / NULLIF(qty, 0), 0) FROM items;
+```
+
+---
+
+## 100. Массивы с ANY/ALL без подзапросов
+**Теория:**  
+ANY/ALL можно использовать с литеральными массивами.
+
+**Реализация:**
+```sql
+SELECT * FROM users WHERE id = ANY(ARRAY[1,2,3]);
+SELECT * FROM employees WHERE salary > ALL(ARRAY[5000,10000]);
+```
