@@ -1034,3 +1034,324 @@ SELECT test_str,
        test_str ~ '^[A-Za-z]+$' AS is_alpha
 FROM (VALUES ('abc'), ('123'), ('a1b2')) AS t(test_str);
 ```
+
+## 76. Как искать без учёта регистра с ~* и почему это удобно? Пример реализации.
+**Теория:**  
+~* — это оператор регулярного выражения, который ищет подстроку без учёта регистра. Удобен для поиска, когда регистр символов неважен (например, имена, email).
+
+**Реализация:**
+```sql
+SELECT * FROM users WHERE name ~* 'ivan'; -- найдёт 'Ivan', 'IVAN', 'ivan'
+```
+
+---
+
+## 77. Как выбрать только первые N записей на группу (ROW_NUMBER() и фильтр)? Пример реализации.
+**Теория:**  
+ROW_NUMBER() присваивает каждой строке номер внутри группы. Можно выбрать первые N записей на группу с помощью фильтра по этому номеру.
+
+**Реализация:**
+```sql
+SELECT *
+FROM (
+  SELECT *, ROW_NUMBER() OVER (PARTITION BY department_id ORDER BY salary DESC) AS rn
+  FROM employees
+) sub
+WHERE rn <= 3; -- топ-3 по зарплате в каждом отделе
+```
+
+---
+
+## 78. Как сравнить с шаблоном с учётом локали/коллации (COLLATE)? Пример реализации.
+**Теория:**  
+COLLATE изменяет правила сравнения строк (например, для языков с разной сортировкой или регистром).
+
+**Реализация:**
+```sql
+SELECT * FROM users WHERE name LIKE 'Ё%' COLLATE "ru_RU";
+```
+
+---
+
+## 79. Как явно перечислять столбцы в SELECT и задавать псевдонимы (AS)? Пример реализации.
+**Теория:**  
+Вместо *, лучше явно указать нужные столбцы. Псевдонимы делают имена колонок более понятными.
+
+**Реализация:**
+```sql
+SELECT id AS user_id, name AS full_name, salary AS monthly_salary
+FROM employees;
+```
+
+---
+
+## 80. Как добавить ограничение UNIQUE (на один или несколько столбцов)? Пример реализации.
+**Теория:**  
+UNIQUE гарантирует, что значения столбца (или комбинации столбцов) уникальны во всей таблице.
+
+**Реализация:**
+```sql
+ALTER TABLE users
+ADD CONSTRAINT unique_email UNIQUE (email);
+
+ALTER TABLE orders
+ADD CONSTRAINT unique_customer_date UNIQUE (customer_id, order_date);
+```
+
+---
+
+## 81. Как удалить внешний ключ по имени? Пример реализации.
+**Теория:**  
+Внешний ключ удаляется через ALTER TABLE ... DROP CONSTRAINT с именем ограничения.
+
+**Реализация:**
+```sql
+ALTER TABLE orders DROP CONSTRAINT orders_customer_id_fkey;
+```
+
+---
+
+## 82. Как найти позицию подстроки (POSITION/STRPOS)? Пример реализации.
+**Теория:**  
+POSITION и STRPOS возвращают позицию (индекс) первой найденной подстроки.
+
+**Реализация:**
+```sql
+SELECT POSITION('a' IN 'abcabc');   -- вернёт 1
+SELECT STRPOS('abcabc', 'b');       -- вернёт 2
+```
+
+---
+
+## 83. Как развернуть массив/строку в строки (unnest/regexp_split_to_table)? Пример реализации.
+**Теория:**  
+unnest превращает массив в строки, regexp_split_to_table — строку в строки по шаблону.
+
+**Реализация:**
+```sql
+-- Массив в строки
+SELECT unnest(ARRAY['a', 'b', 'c']);
+
+-- Строку в строки по разделителю
+SELECT regexp_split_to_table('one,two,three', ',');
+```
+
+---
+
+## 84. Как добавить внешний ключ (FOREIGN KEY) к существующей таблице (ON DELETE/UPDATE)? Пример реализации.
+**Теория:**  
+FOREIGN KEY обеспечивает ссылочную целостность, можно указать действия при удалении/обновлении (CASCADE/RESTRICT/SET NULL).
+
+**Реализация:**
+```sql
+ALTER TABLE orders
+ADD CONSTRAINT orders_customer_id_fkey FOREIGN KEY (customer_id)
+REFERENCES customers(id) ON DELETE CASCADE ON UPDATE RESTRICT;
+```
+
+---
+
+## 85. Как получить длину строки (LENGTH/CHAR_LENGTH) и чем они отличаются? Пример реализации.
+**Теория:**  
+LENGTH и CHAR_LENGTH обычно идентичны в PostgreSQL, оба возвращают количество символов (для текстовых типов).
+
+**Реализация:**
+```sql
+SELECT LENGTH(name), CHAR_LENGTH(name) FROM users;
+```
+
+---
+
+## 86. Как использовать оконные функции (OVER, PARTITION BY, ORDER BY) в SELECT? Пример реализации.
+**Теория:**  
+Оконные функции позволяют вычислять агрегаты по "окнам" данных, не группируя строки.
+
+**Реализация:**
+```sql
+SELECT id, salary,
+  AVG(salary) OVER (PARTITION BY department_id ORDER BY salary) AS avg_in_dept
+FROM employees;
+```
+
+---
+
+## 87. Как искать шаблон в нескольких столбцах сразу (конкатенация/COALESCE)? Пример реализации.
+**Теория:**  
+Можно объединить несколько столбцов через CONCAT или COALESCE и искать по результату.
+
+**Реализация:**
+```sql
+SELECT * FROM users
+WHERE (name || ' ' || COALESCE(email, '')) ILIKE '%ivan%';
+```
+
+---
+
+## 88. Как удалить ограничение UNIQUE по имени? Пример реализации.
+**Теория:**  
+ALTER TABLE ... DROP CONSTRAINT ... удаляет ограничение UNIQUE по заданному имени.
+
+**Реализация:**
+```sql
+ALTER TABLE users DROP CONSTRAINT unique_email;
+```
+
+---
+
+## 89. Как выбирать все столбцы из таблицы (звёздочка) и почему это не всегда хорошо? Пример реализации.
+**Теория:**  
+SELECT * выбирает все столбцы. Это удобно для быстрых выборок, но плохо для производительности и читаемости — лучше явно указывать столбцы.
+
+**Реализация:**
+```sql
+SELECT * FROM employees;
+```
+
+---
+
+## 90. Как выполнить самосоединение (self‑join) одной таблицы? Пример реализации.
+**Теория:**  
+Самосоединение — соединение таблицы самой с собой, например, для поиска пар сотрудников из одного отдела.
+
+**Реализация:**
+```sql
+SELECT a.name AS emp1, b.name AS emp2, a.department_id
+FROM employees a
+JOIN employees b ON a.department_id = b.department_id AND a.id < b.id;
+```
+
+---
+
+## 91. Как использовать колонки/выражения в REGEXP_REPLACE с флагами? Пример реализации.
+**Теория:**  
+REGEXP_REPLACE может использовать столбцы как строку для замены; флаги (например, 'g' — глобально, 'i' — без учёта регистра).
+
+**Реализация:**
+```sql
+SELECT REGEXP_REPLACE(name, '[aeiou]', '*', 'gi')
+FROM users;
+```
+
+---
+
+## 92. Как комбинировать условия WHERE (AND, OR, NOT, скобки)? Пример реализации.
+**Теория:**  
+Можно комбинировать несколько условий с помощью AND, OR, NOT, а также использовать скобки для приоритета.
+
+**Реализация:**
+```sql
+SELECT * FROM users
+WHERE (active AND salary > 10000) OR (NOT active AND salary < 5000);
+```
+
+---
+
+## 93. Как реализовать анти‑соединение (anti‑join) через NOT EXISTS или LEFT JOIN … IS NULL? Пример реализации.
+**Теория:**  
+NOT EXISTS — возвращает строки, для которых нет связанных записей. LEFT JOIN ... IS NULL — аналогичное поведение.
+
+**Реализация:**
+```sql
+-- NOT EXISTS
+SELECT * FROM customers c
+WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);
+
+-- LEFT JOIN ... IS NULL
+SELECT c.*
+FROM customers c
+LEFT JOIN orders o ON o.customer_id = c.id
+WHERE o.id IS NULL;
+```
+
+---
+
+## 94. Как задать начало и конец строки с якорями ^ и $? Пример реализации.
+**Теория:**  
+^ — начало строки, $ — конец строки в регулярных выражениях.
+
+**Реализация:**
+```sql
+-- Строка начинается на 'abc'
+SELECT * FROM test WHERE value ~ '^abc';
+
+-- Строка оканчивается на 'xyz'
+SELECT * FROM test WHERE value ~ 'xyz$';
+```
+
+---
+
+## 95. Как ограничить количество строк с LIMIT и сдвиг с OFFSET? Пример реализации.
+**Теория:**  
+LIMIT ограничивает результат, OFFSET — сдвигает выборку, удобно для пагинации.
+
+**Реализация:**
+```sql
+SELECT * FROM employees
+ORDER BY id
+LIMIT 10 OFFSET 20;
+```
+
+---
+
+## 96. Как выбрать только уникальные строки с DISTINCT? Пример реализации.
+**Теория:**  
+DISTINCT убирает дубликаты из результата, оставляя только уникальные строки.
+
+**Реализация:**
+```sql
+SELECT DISTINCT department_id FROM employees;
+```
+
+---
+
+## 97. Как извлечь и заменить подстроки с REGEXP_REPLACE? Пример реализации.
+**Теория:**  
+REGEXP_REPLACE позволяет заменить подстроку по шаблону (регулярному выражению).
+
+**Реализация:**
+```sql
+-- Заменить все цифры на '*'
+SELECT REGEXP_REPLACE('abc123def', '[0-9]', '*', 'g');
+```
+
+---
+
+## 98. Как разделить строку по разделителю (SPLIT_PART)? Пример реализации.
+**Теория:**  
+SPLIT_PART делит строку по разделителю и возвращает часть по номеру.
+
+**Реализация:**
+```sql
+SELECT SPLIT_PART('a,b,c', ',', 2); -- вернёт 'b'
+```
+
+---
+
+## 99. Как применять агрегатные функции (COUNT, SUM, AVG, MIN, MAX) вместе с GROUP BY? Пример реализации.
+**Теория:**  
+GROUP BY группирует строки, агрегатные функции считают показатели по группам.
+
+**Реализация:**
+```sql
+SELECT department_id,
+  COUNT(*) AS cnt,
+  SUM(salary) AS sum_salary,
+  AVG(salary) AS avg_salary,
+  MIN(salary) AS min_salary,
+  MAX(salary) AS max_salary
+FROM employees
+GROUP BY department_id;
+```
+
+---
+
+## 100. Как создать функциональный индекс для ILIKE по нижнему регистру (lower(column))? Пример реализации.
+**Теория:**  
+Функциональный индекс ускоряет поиск по выражению (например, lower(column) для регистронезависимого поиска).
+
+**Реализация:**
+```sql
+CREATE INDEX idx_users_name_lower ON users (LOWER(name));
+-- Теперь запрос по ILIKE будет быстрее:
+SELECT * FROM users WHERE LOWER(name) LIKE 'ivan%';
+```
