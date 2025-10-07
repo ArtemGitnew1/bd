@@ -700,3 +700,337 @@ SELECT department_id, COUNT(*), SUM(salary)
 FROM employees
 GROUP BY department_id;
 ```
+## 51. Как выбирать из нескольких таблиц без условия соединения (CROSS JOIN)? Пример реализации.
+**Теория:**  
+CROSS JOIN возвращает декартово произведение: каждая строка из первой таблицы сочетается с каждой из второй. Используется, когда нужны все возможные комбинации.
+
+**Реализация:**
+```sql
+SELECT e.name, d.name AS department
+FROM employees e
+CROSS JOIN departments d;
+```
+
+---
+
+## 52. Как выполнять подзапросы в SELECT/WHERE/FROM? Пример реализации.
+**Теория:**  
+Подзапросы можно использовать в разных частях запроса для получения связанных данных, фильтрации или временных таблиц.
+
+**Реализация:**
+```sql
+-- В SELECT: агрегат по связанной таблице
+SELECT name, (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id) AS order_count
+FROM customers c;
+
+-- В WHERE: фильтрация по результату подзапроса
+SELECT * FROM employees
+WHERE department_id IN (SELECT id FROM departments WHERE active);
+
+-- В FROM: временная таблица
+SELECT * FROM (
+  SELECT department_id, AVG(salary) AS avg_salary FROM employees GROUP BY department_id
+) AS dept_stats;
+```
+
+---
+
+## 53. Как собирать значения в одну строку (string_agg) с ORDER BY? Пример реализации.
+**Теория:**  
+string_agg объединяет значения группы в одну строку с разделителем, можно задать порядок с ORDER BY.
+
+**Реализация:**
+```sql
+SELECT department_id,
+       string_agg(name, ', ' ORDER BY name)
+FROM employees
+GROUP BY department_id;
+```
+
+---
+
+## 54. Как добавить несколько столбцов одной командой ALTER TABLE? Пример реализации.
+**Теория:**  
+ALTER TABLE позволяет добавить сразу несколько столбцов, перечислив их через запятую.
+
+**Реализация:**
+```sql
+ALTER TABLE employees
+ADD COLUMN birthdate DATE,
+ADD COLUMN phone TEXT,
+ADD COLUMN is_manager BOOLEAN DEFAULT false;
+```
+
+---
+
+## 55. Как переименовать саму таблицу? Пример реализации.
+**Теория:**  
+ALTER TABLE ... RENAME TO ... переименовывает таблицу.
+
+**Реализация:**
+```sql
+ALTER TABLE employees RENAME TO staff;
+```
+
+---
+
+## 56. Как корректно сравнивать с NULL (IS NULL/IS NOT NULL)? Пример реализации.
+**Теория:**  
+Обычные операторы сравнения не работают с NULL; используйте IS NULL и IS NOT NULL для проверки.
+
+**Реализация:**
+```sql
+SELECT * FROM employees WHERE middle_name IS NULL;
+SELECT * FROM employees WHERE middle_name IS NOT NULL;
+```
+
+---
+
+## 57. Как добавить первичный ключ (PRIMARY KEY) к существующей таблице? Пример реализации.
+**Теория:**  
+ALTER TABLE позволяет добавить PRIMARY KEY к таблице, обычно на уникальный столбец.
+
+**Реализация:**
+```sql
+ALTER TABLE employees
+ADD CONSTRAINT employees_pkey PRIMARY KEY (id);
+```
+
+---
+
+## 58. Как корректно работать со строками, содержащими NULL (COALESCE, NULLIF)? Пример реализации.
+**Теория:**  
+COALESCE возвращает первый ненулевой аргумент; NULLIF превращает совпадающие значения в NULL.
+
+**Реализация:**
+```sql
+-- Вернуть имя или 'N/A' если NULL
+SELECT COALESCE(name, 'N/A') FROM employees;
+
+-- Деление без ошибки на ноль
+SELECT amount / NULLIF(qty, 0) FROM items;
+```
+
+---
+
+## 59. Как изменить тип данных столбца с преобразованием значений через USING? Пример реализации.
+**Теория:**  
+ALTER TABLE ... ALTER COLUMN ... TYPE ... USING позволяет преобразовать значения при изменении типа.
+
+**Реализация:**
+```sql
+ALTER TABLE employees
+ALTER COLUMN salary TYPE TEXT USING salary::TEXT;
+```
+
+---
+
+## 60. Как экранировать специальные символы в регулярных выражениях? Пример реализации.
+**Теория:**  
+Спецсимволы (., *, +, ?, |, [, ], (, ), \) экранируются обратным слэшем: `\`.
+
+**Реализация:**
+```sql
+-- Поиск точки в строке
+SELECT * FROM test WHERE value ~ '\\.';
+-- Поиск знака + в строке
+SELECT * FROM test WHERE value ~ '\\+';
+```
+
+---
+
+## 61. Как удалить столбец из таблицы и чем это отличается от TRUNCATE? Пример реализации.
+**Теория:**  
+ALTER TABLE ... DROP COLUMN удаляет столбец, TRUNCATE удаляет все строки, но сохраняет структуру таблицы.
+
+**Реализация:**
+```sql
+-- Удалить столбец phone
+ALTER TABLE employees DROP COLUMN phone;
+
+-- Удалить все строки из таблицы
+TRUNCATE TABLE employees;
+```
+
+---
+
+## 62. Как группировать и выбирать варианты с ( … ) и | ? Пример реализации.
+**Теория:**  
+В регулярных выражениях ( ... ) обозначает группу, | — альтернативы.
+
+**Реализация:**
+```sql
+-- Строки, начинающиеся на Ivan или Maria
+SELECT * FROM users WHERE name SIMILAR TO '(Ivan|Maria)%';
+```
+
+---
+
+## 63. Как выбирать литералы и выражения в списке SELECT? Пример реализации.
+**Теория:**  
+В SELECT можно указывать литералы (константы) и вычислять выражения.
+
+**Реализация:**
+```sql
+SELECT id, name, 1 AS one, salary * 2 AS double_salary FROM employees;
+```
+
+---
+
+## 64. Как наложить подстроку поверх строки (OVERLAY)? Пример реализации.
+**Теория:**  
+OVERLAY заменяет часть строки другой подстрокой по позиции и длине.
+
+**Реализация:**
+```sql
+-- Заменить 2 символа начиная с 2-й позиции
+SELECT OVERLAY('abcdef' PLACING 'XY' FROM 2 FOR 2); -- вернёт 'aXYdef'
+```
+
+---
+
+## 65. Как использовать выражения CASE в SELECT для условных значений? Пример реализации.
+**Теория:**  
+CASE позволяет возвращать разные значения в зависимости от условий.
+
+**Реализация:**
+```sql
+SELECT name,
+  CASE
+    WHEN salary > 10000 THEN 'Высокая'
+    WHEN salary > 5000 THEN 'Средняя'
+    ELSE 'Низкая'
+  END AS salary_level
+FROM employees;
+```
+
+---
+
+## 66. Как работает шаблонный поиск с LIKE и подстановочными знаками % и _? Пример реализации.
+**Теория:**  
+LIKE с % — любое количество любых символов, _ — ровно один любой символ.
+
+**Реализация:**
+```sql
+-- Все имена, начинающиеся на 'A'
+SELECT * FROM users WHERE name LIKE 'A%';
+
+-- Все имена, где второй символ 'a'
+SELECT * FROM users WHERE name LIKE '_a%';
+```
+
+---
+
+## 67. Как реализовать полу‑соединение (semi‑join) через EXISTS? Пример реализации.
+**Теория:**  
+EXISTS возвращает TRUE, если в подзапросе есть хотя бы одна строка — это и есть semi-join.
+
+**Реализация:**
+```sql
+SELECT * FROM customers c
+WHERE EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id);
+```
+
+---
+
+## 68. Как обрезать пробелы/символы по краям (TRIM/LTRIM/RTRIM/BTRIM)? Пример реализации.
+**Теория:**  
+TRIM убирает пробелы по краям, LTRIM — слева, RTRIM — справа, BTRIM — указанные символы с обеих сторон.
+
+**Реализация:**
+```sql
+SELECT TRIM('  abc  '), LTRIM('  abc  '), RTRIM('  abc  ');
+
+-- Обрезать точки с обеих сторон
+SELECT BTRIM('...abc...', '.');
+```
+
+---
+
+## 69. Как добавить ограничение CHECK к существующей таблице? Пример реализации.
+**Теория:**  
+ALTER TABLE ... ADD CONSTRAINT ... CHECK (...) позволяет добавить новое ограничение.
+
+**Реализация:**
+```sql
+ALTER TABLE employees
+ADD CONSTRAINT chk_salary CHECK (salary > 0);
+```
+
+---
+
+## 70. Как фильтровать группы с HAVING и в чём разница с WHERE? Пример реализации.
+**Теория:**  
+WHERE фильтрует строки до группировки, HAVING — группы после применения агрегатов.
+
+**Реализация:**
+```sql
+-- Группы с суммой зарплаты больше 10000
+SELECT department_id, SUM(salary)
+FROM employees
+GROUP BY department_id
+HAVING SUM(salary) > 10000;
+```
+
+---
+
+## 71. Как получить первое совпадение с SUBSTRING(str FROM 'regex')? Пример реализации.
+**Теория:**  
+SUBSTRING(str FROM 'regex') возвращает первую найденную часть строки по регулярному выражению.
+
+**Реализация:**
+```sql
+SELECT SUBSTRING('abc123def' FROM '[0-9]+'); -- вернёт '123'
+```
+
+---
+
+## 72. Как заменить подстроки (REPLACE) и чем отличается от REGEXP_REPLACE? Пример реализации.
+**Теория:**  
+REPLACE заменяет фиксированные подстроки, REGEXP_REPLACE — по регулярному выражению.
+
+**Реализация:**
+```sql
+-- Заменить 'abc' на 'xyz'
+SELECT REPLACE('abcabc', 'abc', 'xyz');
+
+-- Заменить все цифры на '*'
+SELECT REGEXP_REPLACE('abc123def', '[0-9]', '*', 'g');
+```
+
+---
+
+## 73. Как переименовать столбец в таблице? Пример реализации.
+**Теория:**  
+ALTER TABLE ... RENAME COLUMN ... TO ... переименовывает столбец.
+
+**Реализация:**
+```sql
+ALTER TABLE employees
+RENAME COLUMN middle_name TO patronymic;
+```
+
+---
+
+## 74. Как фильтровать по множеству значений с IN/NOT IN? Пример реализации.
+**Теория:**  
+IN — значение входит в список, NOT IN — не входит. Удобно для выбора по нескольким значениям.
+
+**Реализация:**
+```sql
+SELECT * FROM employees WHERE department_id IN (1, 2, 3);
+SELECT * FROM employees WHERE department_id NOT IN (1, 2, 3);
+```
+
+---
+
+## 75. Как отладить шаблон регулярного выражения на тестовых данных? Пример реализации.
+**Теория:**  
+Для теста шаблона используйте простую выборку с вашими тестовыми строками.
+
+**Реализация:**
+```sql
+SELECT test_str,
+       test_str ~ '^[A-Za-z]+$' AS is_alpha
+FROM (VALUES ('abc'), ('123'), ('a1b2')) AS t(test_str);
+```
