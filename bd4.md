@@ -1225,3 +1225,179 @@ JOIN departments d ON e.department_id = d.id;
 
 ---
 
+## 89. Как создавать анти‑ и полу‑соединения через EXISTS/NOT EXISTS?
+**Теория:**  
+- Полу‑соединение (`EXISTS`): возвращает строки, для которых есть связанные записи.
+- Анти‑соединение (`NOT EXISTS`): возвращает строки, для которых нет связанных записей.
+
+**Реализация:**
+```sql
+-- Полу‑соединение: клиенты с заказами
+SELECT * FROM customers c WHERE EXISTS (
+  SELECT 1 FROM orders o WHERE o.customer_id = c.id
+);
+
+-- Анти‑соединение: клиенты без заказов
+SELECT * FROM customers c WHERE NOT EXISTS (
+  SELECT 1 FROM orders o WHERE o.customer_id = c.id
+);
+```
+
+---
+
+## 90. Как проверить, что строка состоит только из цифр с SIMILAR TO?
+**Теория:**  
+SIMILAR TO позволяет указать шаблон для числовых строк.
+
+**Реализация:**
+```sql
+-- Только строки из цифр
+SELECT * FROM test WHERE value SIMILAR TO '[0-9]+';
+```
+
+---
+
+## 91. Как сравнить производительность SIMILAR TO и POSIX‑регекса?
+**Теория:**  
+POSIX‑регекс (`~`, `~*`) обычно быстрее и поддерживает индексацию по выражению. SIMILAR TO — медленнее, сложнее.
+
+**Реализация:**
+```sql
+-- SIMILAR TO
+SELECT * FROM test WHERE value SIMILAR TO '[0-9]+';
+
+-- POSIX‑регекс
+SELECT * FROM test WHERE value ~ '^[0-9]+$';
+
+-- Для профилирования используйте EXPLAIN ANALYZE:
+EXPLAIN ANALYZE SELECT * FROM test WHERE value ~ '^[0-9]+$';
+```
+
+---
+
+## 92. Как упрощать CASE с помощью GREATEST/LEAST и bool‑выражений?
+**Теория:**  
+GREATEST/LEAST выбирает минимум/максимум; булевы выражения можно напрямую преобразовать в метки.
+
+**Реализация:**
+```sql
+-- Минимальное значение между salary и 5000
+SELECT GREATEST(salary, 5000) FROM employees;
+
+-- Булево → текст
+SELECT CASE WHEN active THEN 'Да' ELSE 'Нет' END AS active_label FROM users;
+```
+
+---
+
+## 93. Как посчитать агрегат по подмножеству строк с FILTER (WHERE …)?
+**Теория:**  
+`FILTER` применяет агрегат только к строкам, удовлетворяющим условию.
+
+**Реализация:**
+```sql
+SELECT
+  COUNT(*) AS total,
+  COUNT(*) FILTER (WHERE active) AS active_count
+FROM users;
+```
+
+---
+
+## 94. Как избежать ошибки «column must appear in the GROUP BY clause»?
+**Теория:**  
+В SELECT с GROUP BY можно использовать только агрегаты и столбцы из GROUP BY.
+
+**Реализация:**
+```sql
+-- Верно: оба столбца — агрегат и группируемый
+SELECT department_id, COUNT(*) FROM employees GROUP BY department_id;
+
+-- Ошибка: name не в GROUP BY
+-- SELECT department_id, name, COUNT(*) FROM employees GROUP BY department_id; -- ошибка
+```
+
+---
+
+## 95. Как переписать подзапрос с IN в EXISTS и когда это выгодно?
+**Теория:**  
+EXISTS быстрее при большом количестве значений или наличии NULL, IN проще для маленьких наборов.
+
+**Реализация:**
+```sql
+-- IN
+SELECT * FROM users WHERE id IN (SELECT user_id FROM orders);
+
+-- EXISTS
+SELECT * FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id);
+```
+
+---
+
+## 96. Что такое SIMILAR TO и как он соотносится с LIKE и POSIX‑регекс?
+**Теория:**  
+- LIKE — простой шаблон (% и _)
+- SIMILAR TO — расширенный шаблон (регулярные выражения)
+- POSIX‑регекс — полнофункциональный регекс (`~`, `~*`)
+
+**Реализация:**
+```sql
+-- LIKE: 'a%'
+SELECT * FROM test WHERE name LIKE 'a%';
+
+-- SIMILAR TO: '(a|b)%'
+SELECT * FROM test WHERE name SIMILAR TO '(a|b)%';
+
+-- POSIX‑регекс: ~
+SELECT * FROM test WHERE name ~ '^(a|b)';
+```
+
+---
+
+## 97. Когда подзапрос можно заменить на JOIN и почему это иногда быстрее?
+**Теория:**  
+JOIN быстрее для больших данных, если нужен весь набор; подзапрос — для проверки существования.
+
+**Реализация:**
+```sql
+-- Подзапрос
+SELECT * FROM users WHERE id IN (SELECT user_id FROM orders);
+
+-- JOIN
+SELECT DISTINCT u.* FROM users u JOIN orders o ON u.id = o.user_id;
+```
+
+---
+
+## 98. Как использовать DOMAIN в таблице и наследовать его ограничения?
+**Теория:**  
+DOMAIN хранит ограничения, которые наследуются колонкой.
+
+**Реализация:**
+```sql
+CREATE DOMAIN positive_int AS INTEGER CHECK (VALUE > 0);
+CREATE TABLE items (qty positive_int);
+```
+
+---
+
+## 99. Как комбинировать COALESCE и NULLIF в одном выражении?
+**Теория:**  
+NULLIF устраняет конфликт/деление на ноль, COALESCE подставляет значение по умолчанию.
+
+**Реализация:**
+```sql
+SELECT COALESCE(amount / NULLIF(qty, 0), 0) FROM items;
+```
+
+---
+
+## 100. Как использовать массивы с ANY/ALL без подзапросов?
+**Теория:**  
+ANY/ALL можно использовать с литеральными массивами.
+
+**Реализация:**
+```sql
+SELECT * FROM users WHERE id = ANY(ARRAY[1,2,3]);
+SELECT * FROM employees WHERE salary > ALL(ARRAY[5000,10000]);
+```
