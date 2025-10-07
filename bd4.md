@@ -567,3 +567,345 @@ SELECT department_id,
 FROM employees
 GROUP BY department_id;
 ```
+## 41. Проверка ссылочной целостности нестандартных правил через подзапросы
+**Теория:**  
+Подзапрос позволяет проверить, есть ли связанные записи по сложному условию, не выражаемому стандартным FOREIGN KEY.
+
+**Реализация:**
+```sql
+-- Проверить, что все заказы имеют клиента с активным статусом
+SELECT o.*
+FROM orders o
+WHERE NOT EXISTS (
+  SELECT 1 FROM customers c
+  WHERE c.id = o.customer_id AND c.active = true
+);
+```
+
+---
+
+## 42. CASE: формы выражения (simple, searched)
+**Теория:**  
+CASE бывает двух видов:  
+- simple: сравнивает выражение с вариантами  
+- searched: логические условия
+
+**Реализация:**
+```sql
+-- Simple CASE
+SELECT
+  CASE status
+    WHEN 'active' THEN 'Активен'
+    WHEN 'inactive' THEN 'Неактивен'
+    ELSE 'Неизвестно'
+  END AS status_label
+FROM users;
+
+-- Searched CASE
+SELECT
+  CASE
+    WHEN salary > 10000 THEN 'Высокая'
+    WHEN salary > 5000 THEN 'Средняя'
+    ELSE 'Низкая'
+  END AS salary_level
+FROM employees;
+```
+
+---
+
+## 43. Подзапрос для вычисления ранга/топ-N по группе
+**Теория:**  
+Используйте оконные функции и подзапрос для вычисления ранга или топ-N внутри группы.
+
+**Реализация:**
+```sql
+-- Топ-3 сотрудников по зарплате в каждом отделе
+SELECT *
+FROM (
+  SELECT *,
+    ROW_NUMBER() OVER (PARTITION BY department_id ORDER BY salary DESC) AS rn
+  FROM employees
+) sub
+WHERE rn <= 3;
+```
+
+---
+
+## 44. Категории на основе диапазонов через CASE
+**Теория:**  
+CASE удобно использовать для присвоения категорий по диапазону значений.
+
+**Реализация:**
+```sql
+-- Категории по возрасту
+SELECT name,
+  CASE
+    WHEN age < 18 THEN 'Детство'
+    WHEN age < 65 THEN 'Взрослый'
+    ELSE 'Пожилой'
+  END AS age_category
+FROM users;
+```
+
+---
+
+## 45. Проверка деления на ноль и пропусков данных в агрегатах
+**Теория:**  
+NULLIF позволяет избежать деления на ноль; агрегаты игнорируют NULL по умолчанию.
+
+**Реализация:**
+```sql
+-- Средний чек, если есть заказы
+SELECT SUM(amount) / NULLIF(COUNT(*), 0) AS avg_amount
+FROM orders;
+```
+
+---
+
+## 46. Коррелированные vs некоррелированные подзапросы
+**Теория:**  
+- Коррелированный: зависит от данных из внешнего запроса  
+- Некоррелированный: независим
+
+**Реализация:**
+```sql
+-- Коррелированный: зависит от внешнего запроса
+SELECT name
+FROM employees e
+WHERE EXISTS (
+  SELECT 1 FROM orders o WHERE o.employee_id = e.id
+);
+
+-- Некоррелированный: независимый подзапрос
+SELECT name
+FROM employees
+WHERE department_id IN (SELECT id FROM departments WHERE active = true);
+```
+
+---
+
+## 47. Создание DOMAIN с CHECK‑ограничением
+**Теория:**  
+DOMAIN позволяет задать тип с дополнительным CHECK-ограничением.
+
+**Реализация:**
+```sql
+-- Домен для положительных чисел
+CREATE DOMAIN positive_int AS INTEGER CHECK (VALUE > 0);
+
+CREATE TABLE items (
+  quantity positive_int
+);
+```
+
+---
+
+## 48. Базовые агрегаты: COUNT, SUM, AVG, MIN, MAX
+**Теория:**  
+Агрегаты используются для подсчёта, суммы, среднего, максимума и минимума.
+
+**Реализация:**
+```sql
+SELECT
+  COUNT(*) AS total,
+  SUM(salary) AS sum_salary,
+  AVG(salary) AS avg_salary,
+  MIN(salary) AS min_salary,
+  MAX(salary) AS max_salary
+FROM employees;
+```
+
+---
+
+## 49. Материализация CTE в PostgreSQL
+**Теория:**  
+В новых версиях PostgreSQL CTE (WITH) не всегда материализуется — оптимизатор может "inline" CTE, если не требуется изоляция.
+
+**Реализация:**
+```sql
+-- Пример CTE
+WITH active_employees AS (
+  SELECT * FROM employees WHERE active = true
+)
+SELECT * FROM active_employees;
+-- Материализация зависит от использования; можно заставить её через MATERIALIZED
+WITH active_employees AS MATERIALIZED (
+  SELECT * FROM employees WHERE active = true
+)
+SELECT * FROM active_employees;
+```
+
+---
+
+## 50. Использование LATERAL JOIN вместо коррелированного подзапроса
+**Теория:**  
+`LATERAL` позволяет ссылаться на столбцы из предыдущих таблиц прямо в FROM.
+
+**Реализация:**
+```sql
+-- Для каждого заказа — последний комментарий
+SELECT o.*, c.*
+FROM orders o
+LEFT JOIN LATERAL (
+  SELECT * FROM comments WHERE order_id = o.id ORDER BY created_at DESC LIMIT 1
+) c ON TRUE;
+```
+
+---
+
+## 51. Условие «не существует ни одной связанной записи» с NOT EXISTS
+**Теория:**  
+`NOT EXISTS` возвращает TRUE, если подзапрос не вернул ни одной строки.
+
+**Реализация:**
+```sql
+-- Клиенты без заказов
+SELECT * FROM customers c
+WHERE NOT EXISTS (
+  SELECT 1 FROM orders o WHERE o.customer_id = c.id
+);
+```
+
+---
+
+## 52. Преобразование булевых условий в «Да»/«Нет» через CASE
+**Теория:**  
+CASE позволяет преобразовать TRUE/FALSE/NULL в метки.
+
+**Реализация:**
+```sql
+SELECT name,
+  CASE
+    WHEN active THEN 'Да'
+    ELSE 'Нет'
+  END AS active_label
+FROM users;
+```
+
+---
+
+## 53. > ANY vs > ALL для сравнения с подзапросом
+**Теория:**  
+- `> ANY`: больше хотя бы одного значения  
+- `> ALL`: больше всех значений
+
+**Реализация:**
+```sql
+-- Больше любого значения
+SELECT * FROM employees
+WHERE salary > ANY (SELECT salary FROM employees WHERE department_id = 1);
+
+-- Больше всех значений
+SELECT * FROM employees
+WHERE salary > ALL (SELECT salary FROM employees WHERE department_id = 1);
+```
+
+---
+
+## 54. Фильтрация строк через WHERE
+**Теория:**  
+`WHERE` фильтрует строки по условию до выполнения других операций.
+
+**Реализация:**
+```sql
+-- Только активные сотрудники
+SELECT * FROM employees WHERE active = true;
+```
+
+---
+
+## 55. DISTINCT ON для выборки по ключу вместо агрегирования
+**Теория:**  
+`DISTINCT ON` позволяет выбрать одну строку по ключу, часто — первую по сортировке.
+
+**Реализация:**
+```sql
+-- Первый заказ каждого клиента
+SELECT DISTINCT ON (customer_id) *
+FROM orders
+ORDER BY customer_id, created_at;
+```
+
+---
+
+## 56. CASE и тип результата, приведение типов
+**Теория:**  
+CASE возвращает тип, приводимый из всех ветвей; если ветви разных типов, итоговый тип — универсальный.
+
+**Реализация:**
+```sql
+-- Все ветви должны быть совместимы по типу
+SELECT
+  CASE WHEN salary > 10000 THEN salary ELSE NULL END AS salary_value
+FROM employees;
+-- Если смешаны числа и строки — результат текст
+SELECT
+  CASE WHEN salary > 10000 THEN salary::text ELSE 'мало' END AS label
+FROM employees;
+```
+
+---
+
+## 57. Проверка целостности группировок тестовыми подмножествами
+**Теория:**  
+Для теста группировок создайте подмножество с известной структурой и проверьте агрегаты.
+
+**Реализация:**
+```sql
+-- Тест: агрегаты по отделу в тестовой таблице
+SELECT department_id, COUNT(*), SUM(salary)
+FROM test_employees
+GROUP BY department_id;
+```
+
+---
+
+## 58. Тестирование и профилирование подзапросов (EXPLAIN/ANALYZE, enable_* GUC)
+**Теория:**  
+`EXPLAIN`/`ANALYZE` показывают план выполнения и время. GUC-параметры могут влиять на оптимизацию.
+
+**Реализация:**
+```sql
+-- EXPLAIN для запроса
+EXPLAIN ANALYZE
+SELECT * FROM employees WHERE active = true;
+
+-- В PostgreSQL можно изменить параметры:
+SET enable_seqscan = off; -- Пример отключения последовательного сканирования
+```
+
+---
+
+## 59. Группировка по условию (CASE внутри GROUP BY)
+**Теория:**  
+Можно группировать по вычисляемому значению CASE.
+
+**Реализация:**
+```sql
+-- Группировка по возрастной категории
+SELECT
+  CASE
+    WHEN age < 18 THEN 'Детство'
+    WHEN age < 65 THEN 'Взрослый'
+    ELSE 'Пожилой'
+  END AS age_category,
+  COUNT(*)
+FROM users
+GROUP BY age_category;
+```
+
+---
+
+## 60. COUNT(*) vs COUNT(column)
+**Теория:**  
+- COUNT(*) — считает все строки  
+- COUNT(column) — только строки, где column не NULL
+
+**Реализация:**
+```sql
+-- Общее количество строк
+SELECT COUNT(*) FROM employees;
+
+-- Только с указанной зарплатой
+SELECT COUNT(salary) FROM employees;
+```
